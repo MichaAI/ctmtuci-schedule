@@ -1,16 +1,10 @@
-use std::fmt::Debug;
 
 use crate::{sheet_updater::GROOPS, SHEET};
 use calamine::{Data, Reader};
 use chrono::Datelike;
 use log::{debug, info};
 use teloxide::{
-    macros::BotCommands,
-    prelude::{Requester, ResponseResult},
-    repls::CommandReplExt,
-    types::Message,
-    utils::command::BotCommands as _,
-    Bot,
+    macros::BotCommands, payloads::SendMessageSetters, prelude::{Requester, ResponseResult}, repls::CommandReplExt, types::Message, utils::command::BotCommands as _, Bot
 };
 
 const DAY_ROW: [u8; 6] = [7, 13, 19, 25, 31, 37];
@@ -90,7 +84,7 @@ async fn tomorrow(bot: Bot, msg: Message, s: String) {
 
     let (_, column) = groops.get(&s).unwrap();
 
-    let response = String::new();
+    let mut response = String::new();
     let mut sheet = SHEET.lock().await;
     let sheet = sheet.as_mut();
     if let Some(sheet) = sheet {
@@ -140,7 +134,7 @@ async fn tomorrow(bot: Bot, msg: Message, s: String) {
             match cell {
                 Data::String(s) => {
                     if !s.is_empty() {
-                        bot.send_message(msg.chat.id, s).await.unwrap();
+                        response.push_str(&format!("<blockquote>{}: {}</blockquote> \n", lesson + 1, s));
                     }
                 }
                 Data::Empty => {}
@@ -148,4 +142,7 @@ async fn tomorrow(bot: Bot, msg: Message, s: String) {
             }
         }
     }
+
+    bot.send_message(msg.chat.id, response).parse_mode(teloxide::types::ParseMode::Html).await.unwrap();
+
 }

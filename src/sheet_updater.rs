@@ -2,7 +2,6 @@ use std::{collections::HashMap, io::Cursor, sync::{Arc, LazyLock}};
 
 use calamine::{Data, Reader};
 use chrono::Datelike;
-use log::debug;
 
 use crate::{SHEET, URI};
 

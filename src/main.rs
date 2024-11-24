@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = start_update().await;
 
     let bot = Bot::from_env();
-
+    
     tg::register(bot).await;
 
     Ok(())
