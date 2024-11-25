@@ -66,11 +66,11 @@ async fn answer(bot: Bot, msg: Message) -> ResponseResult<()> {
     description = "These commands are supported:"
 )]
 enum Command {
-    #[command(description = "display this text.")]
+    #[command(description = "() - Help command")]
     Help,
-    #[command(description = "Отображает расписание на завтра")]
+    #[command(description = "(group) - Отображает расписание на завтра")]
     Tomorrow(String),
-    #[command(description = "Get schedule for a specific group and date", parse_with = "split")]
+    #[command(description = "(group, date) - Отображает расписание на указанную дату", parse_with = "split")]
     Get{group: String, date: String},
 }
 
