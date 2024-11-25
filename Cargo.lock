@@ -179,6 +179,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-targets 0.52.6",
 ]
@@ -240,6 +241,7 @@ dependencies = [
  "log",
  "pretty_env_logger",
  "reqwest 0.12.9",
+ "serde",
  "teloxide",
  "tokio",
 ]

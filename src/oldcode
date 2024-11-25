@@ -1,0 +1,113 @@
+/// Fetches and sends tomorrow's schedule for a specified group.
+///
+/// # Parameters
+///
+/// * `bot`: A `Bot` instance used to send messages.
+/// * `msg`: A `Message` instance representing the incoming message.
+/// * `s`: A `String` representing the group for which the schedule is requested.
+///
+/// # Return
+///
+/// This function does not return a value. It sends messages to the chat associated with the `msg` parameter.
+async fn tomorrow(bot: Bot, msg: Message, s: String) {
+    /* // Your code to fetch tomorrow's schedule goes here
+    // For example, you can use a web scraping library or API to fetch the schedule
+    let today = chrono::Local::now().date_naive();
+    let tomorrow = today + chrono::Duration::days(1);
+    info!("Tomorrow: {}", tomorrow);
+
+    if tomorrow.weekday().num_days_from_monday() == 6
+    /* Sunday */
+    {
+        bot.send_message(msg.chat.id, "Звтра выходной")
+            .await
+            .unwrap();
+        return;
+    }
+
+    if s.is_empty() {
+        bot.send_message(msg.chat.id, "Введите группу")
+            .await
+            .unwrap();
+        return;
+    }
+
+    let groops = GROOPS.read().await.to_owned();
+    debug!("Groops: {:#?}", groops);
+    if !groops.contains_key(&s.to_lowercase()) {
+        bot.send_message(msg.chat.id, "Группа не найдена")
+            .await
+            .unwrap();
+        return;
+    }
+
+    let (_, column) = groops.get(&s).unwrap();
+
+    let mut response = String::new();
+    let mut sheet = SHEET.lock().await;
+    let sheet = sheet.as_mut();
+    if let Some(sheet) = sheet {
+        let weekday = tomorrow.weekday();
+        debug!("Weekday: {}", weekday);
+        debug!(
+            "Days from monday: {}",
+            weekday.num_days_from_monday() as i64
+        );
+        let monday = tomorrow - chrono::Duration::days(weekday.num_days_from_monday() as i64);
+        debug!("Monday: {}", monday);
+        let formated_monday = monday.format("%d.%m").to_string();
+        let mut name = sheet.sheet_names();
+        debug!(
+            "Sheet names: {:#?}, formated_monday: {}",
+            name, formated_monday
+        );
+        let name = name
+            .iter_mut()
+            .find(|s| s.starts_with(formated_monday.as_str()))
+            .unwrap();
+
+        let list = sheet.worksheet_range(name).unwrap();
+        for lesson in 0..5 {
+            let row = DAY_ROW[tomorrow.weekday().num_days_from_monday() as usize] + lesson;
+            let mut cell = list.get((row as usize, *column as usize));
+            debug!("Cell: {:#?}, row: {}, column: {}", cell, row, column);
+            if !name.contains("не") {
+                let possible_cell = list.get((row as usize, *column as usize + 1));
+                if let Some(possible_cell) = possible_cell {
+                    match possible_cell {
+                        Data::String(s) => {
+                            if !s.is_empty() {
+                                cell = Some(possible_cell);
+                            }
+                        }
+                        Data::Empty => {}
+                        _ => {}
+                    }
+                }
+            }
+
+            let cell = match cell {
+                Some(cell) => cell,
+                None => continue,
+            };
+            match cell {
+                Data::String(s) => {
+                    if !s.is_empty() {
+                        response.push_str(&format!(
+                            "<blockquote>{}: {}</blockquote> \n",
+                            lesson + 1,
+                            s
+                        ));
+                    }
+                }
+                Data::Empty => {}
+                _ => {}
+            }
+        }
+    }
+
+    bot.send_message(msg.chat.id, response)
+        .parse_mode(teloxide::types::ParseMode::Html)
+        .await
+        .unwrap(); */
+}
