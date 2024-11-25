@@ -1,6 +1,6 @@
-use crate::{sheet_updater::GROOPS, SHEET};
+use crate::{sheet_updater::GROOPS, utils::parse_date, SHEET};
 use calamine::{Data, Reader};
-use chrono::Datelike;
+use chrono::{Datelike, NaiveDate};
 use log::{debug, info};
 use teloxide::{
     dispatching::UpdateFilterExt,
@@ -12,6 +12,7 @@ use teloxide::{
     utils::command::BotCommands as _,
     Bot, RequestError,
 };
+
 
 const DAY_ROW: [u8; 6] = [7, 13, 19, 25, 31, 37];
 pub async fn register(bot: Bot) {
@@ -25,7 +26,19 @@ pub async fn register(bot: Bot) {
         .await;
 }
 
-async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
+async fn answer(bot: Bot, msg: Message) -> ResponseResult<()> {
+    let text = match msg.text() {
+        Some(t) => t,
+        None => {
+            let _ = bot.send_message(msg.chat.id, "No text").await;
+            return Ok(())
+        },
+    };
+
+    let cmd = match Command::parse(text, "ctmutci_schedule_bot") {
+        Ok(c) => c,
+        Err(_) => return Ok(()),
+    };
     let _: Result<(), ()> = match cmd {
         Command::Help => {
             bot.send_message(msg.chat.id, Command::descriptions().to_string())
@@ -35,6 +48,11 @@ async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
         Command::Tomorrow(str) => {
             info!("String: {}", str);
             tokio::spawn(tomorrow(bot, msg, str));
+            Ok(())
+        }
+        Command::Get{group, date} => {
+            info!("Group: {}, Date: {}", group, date);
+            tokio::spawn(get(bot, msg, group, date));
             Ok(())
         }
     };
@@ -52,6 +70,8 @@ enum Command {
     Help,
     #[command(description = "Отображает расписание на завтра")]
     Tomorrow(String),
+    #[command(description = "Get schedule for a specific group and date", parse_with = "split")]
+    Get{group: String, date: String},
 }
 
 /// This function is responsible for fetching and sending the schedule for the next day to a Telegram chat.
@@ -89,6 +109,33 @@ async fn tomorrow(bot: Bot, msg: Message, s: String) {
     };
 }
 
+async fn get(bot: Bot, msg: Message, group: String, date: String) {
+    let date = match parse_date(&date) {
+        Ok(parsed_date) => parsed_date,
+        Err(_) => {
+            bot.send_message(msg.chat.id, "Неверный формат даты").await.unwrap();
+            return ();
+        }
+    };
+
+    match fetch_schedule(date, group).await {
+        Ok(s) => bot
+            .send_message(msg.chat.id, s)
+            .parse_mode(teloxide::types::ParseMode::Html)
+            .await
+            .unwrap(),
+        Err(e) => bot
+            .send_message(
+                msg.chat.id,
+                "Error occured while fetching schedule".to_owned() + &e,
+            )
+            .parse_mode(teloxide::types::ParseMode::Html)
+            .await
+            .unwrap(),
+    };
+}
+    
+
 async fn inline_query(bot: Bot, query: InlineQuery) -> Result<(), RequestError> {
     Ok(())
 }
@@ -104,7 +151,7 @@ async fn fetch_schedule(date: chrono::NaiveDate, group: String) -> Result<String
     let (_, column_index) = group_data.get(&group).unwrap();
 
     let mut sheet_lock = SHEET.lock().await;
-    let mut sheet = sheet_lock.as_mut();
+    let sheet = sheet_lock.as_mut();
     if let Some(sheet) = sheet {
         let monday_date = date - chrono::Duration::days(date.weekday().num_days_from_monday() as i64);
         let formatted_monday_date = monday_date.format("%d.%m").to_string();
@@ -142,11 +189,13 @@ async fn fetch_schedule(date: chrono::NaiveDate, group: String) -> Result<String
             let time = match time_data {
                 Some(Data::String(time)) => time,
                 _ => "",
-            };
+            }.replace("\n", ", ");
 
             let classroom_data = worksheet_data.get((row_index as usize, *column_index + 2));
             let classroom = match classroom_data {
                 Some(Data::String(classroom)) => classroom,
+                Some(Data::Int(classroom)) => &classroom.to_string(),
+                Some(Data::Float(classroom)) => &classroom.to_string(),
                 _ => "",
             };
 
