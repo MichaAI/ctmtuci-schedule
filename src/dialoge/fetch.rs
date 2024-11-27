@@ -27,13 +27,15 @@ use teloxide::{
 /// This function does not return a value. It sends a message to the user with a calendar
 /// for date selection if the group is found, or a "Group not found" message if the group
 /// does not exist.
-pub async fn receive_group(bot: Bot, msg: Message, group: String) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn receive_group(bot: Bot, msg: Message, group: String) {
     trace!("Entering receive_group function with group: {}", group);
     let group_data = GROOPS.read().await;
     if !group_data.contains_key(&group.to_lowercase()) {
         warn!("Group not found: {}", group);
-        bot.send_message(msg.chat.id, "Группа не найдена").await?;
-        return Ok(());
+        bot.send_message(msg.chat.id, "Группа не найдена")
+            .await
+            .unwrap();
+        return;
     }
     info!("Group found: {}", group);
     let (buttons, name) = get_calendar(None);
@@ -43,15 +45,15 @@ pub async fn receive_group(bot: Bot, msg: Message, group: String) -> Result<(), 
         .map(|week| {
             week.iter()
                 .map(|day| {
-                    if let Some(day) = day {
-                        trace!("Adding button for day: {}", day.format("%d"));
+                    if day.is_some() {
+                        trace!("Adding button for day: {}", day.unwrap().format("%d"));
                         InlineKeyboardButton::callback(
-                            day.format("%d").to_string(),
+                            day.unwrap().format("%d").to_string(),
                             serde_json::to_string(&MessageMetadata {
                                 group: group.to_string(),
-                                date: *day,
+                                date: day.unwrap(),
                             })
-                            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?,
+                            .unwrap(),
                         )
                     } else {
                         InlineKeyboardButton::callback(" ".to_string(), " ".to_string())
@@ -67,9 +69,9 @@ pub async fn receive_group(bot: Bot, msg: Message, group: String) -> Result<(), 
         format!("Выберите дату используя календарь ниже. Месяц: {}", name),
     )
     .reply_markup(InlineKeyboardMarkup::new(buttons))
-    .await?;
+    .await
+    .unwrap();
     trace!("Exiting receive_group function");
-    Ok(())
 }
 
 pub async fn callback_handler(bot: Bot, q: CallbackQuery) -> Result<(), RequestError> {
