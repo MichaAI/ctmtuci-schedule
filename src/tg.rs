@@ -1,9 +1,11 @@
-use crate::{sheet_updater::GROOPS, utils::parse_date, SHEET};
+use crate::dialoge::fetch::{receive_group};
+use crate::{dialoge::fetch, sheet_updater::GROOPS, utils::parse_date, SHEET};
 use calamine::{Data, Reader};
 use chrono::{Datelike, NaiveDate};
 use log::{debug, info};
+use teloxide::dispatching::dialogue::InMemStorage;
 use teloxide::{
-    dispatching::UpdateFilterExt,
+    dispatching::{HandlerExt, UpdateFilterExt},
     dptree::{self, endpoint},
     macros::BotCommands,
     payloads::SendMessageSetters,
@@ -12,13 +14,12 @@ use teloxide::{
     utils::command::BotCommands as _,
     Bot, RequestError,
 };
-
-
 const DAY_ROW: [u8; 6] = [7, 13, 19, 25, 31, 37];
 pub async fn register(bot: Bot) {
     let handler = dptree::entry()
         .branch(Update::filter_message().branch(endpoint(answer)))
-        .branch(Update::filter_inline_query().branch(endpoint(inline_query)));
+        .branch(Update::filter_inline_query().branch(endpoint(inline_query)))
+        .branch(Update::filter_callback_query().endpoint(fetch::callback_handler));
     Dispatcher::builder(bot, handler)
         .enable_ctrlc_handler()
         .build()
@@ -31,10 +32,10 @@ async fn answer(bot: Bot, msg: Message) -> ResponseResult<()> {
         Some(t) => t,
         None => {
             let _ = bot.send_message(msg.chat.id, "No text").await;
-            return Ok(())
-        },
+            return Ok(());
+        }
     };
-
+    debug!("Text: {}", text);
     let cmd = match Command::parse(text, "ctmutci_schedule_bot") {
         Ok(c) => c,
         Err(_) => return Ok(()),
@@ -50,9 +51,14 @@ async fn answer(bot: Bot, msg: Message) -> ResponseResult<()> {
             tokio::spawn(tomorrow(bot, msg, str));
             Ok(())
         }
-        Command::Get{group, date} => {
+        Command::Get { group, date } => {
             info!("Group: {}, Date: {}", group, date);
             tokio::spawn(get(bot, msg, group, date));
+            Ok(())
+        }
+        Command::Fetch { group } => {
+            info!("Group: {}", group);
+            tokio::spawn(receive_group(bot, msg, group));
             Ok(())
         }
     };
@@ -70,8 +76,17 @@ enum Command {
     Help,
     #[command(description = "(group) - Отображает расписание на завтра")]
     Tomorrow(String),
-    #[command(description = "(group, date) - Отображает расписание на указанную дату", parse_with = "split")]
-    Get{group: String, date: String},
+    #[command(
+        description = "(group, date) - Отображает расписание на указанную дату",
+        parse_with = "split"
+    )]
+    Get {
+        group: String,
+        date: String,
+    },
+    Fetch {
+        group: String,
+    },
 }
 
 /// This function is responsible for fetching and sending the schedule for the next day to a Telegram chat.
@@ -113,7 +128,9 @@ async fn get(bot: Bot, msg: Message, group: String, date: String) {
     let date = match parse_date(&date) {
         Ok(parsed_date) => parsed_date,
         Err(_) => {
-            bot.send_message(msg.chat.id, "Неверный формат даты").await.unwrap();
+            bot.send_message(msg.chat.id, "Неверный формат даты")
+                .await
+                .unwrap();
             return ();
         }
     };
@@ -134,13 +151,12 @@ async fn get(bot: Bot, msg: Message, group: String, date: String) {
             .unwrap(),
     };
 }
-    
 
 async fn inline_query(bot: Bot, query: InlineQuery) -> Result<(), RequestError> {
     Ok(())
 }
 
-async fn fetch_schedule(date: chrono::NaiveDate, group: String) -> Result<String, String> {
+pub async fn fetch_schedule(date: chrono::NaiveDate, group: String) -> Result<String, String> {
     if date.weekday().num_days_from_monday() == 6 {
         return Ok("Выходной".to_string());
     }
@@ -153,7 +169,8 @@ async fn fetch_schedule(date: chrono::NaiveDate, group: String) -> Result<String
     let mut sheet_lock = SHEET.lock().await;
     let sheet = sheet_lock.as_mut();
     if let Some(sheet) = sheet {
-        let monday_date = date - chrono::Duration::days(date.weekday().num_days_from_monday() as i64);
+        let monday_date =
+            date - chrono::Duration::days(date.weekday().num_days_from_monday() as i64);
         let formatted_monday_date = monday_date.format("%d.%m").to_string();
         let mut sheet_names = sheet.sheet_names();
         let sheet_name = sheet_names
@@ -166,7 +183,8 @@ async fn fetch_schedule(date: chrono::NaiveDate, group: String) -> Result<String
             let row_index = DAY_ROW[date.weekday().num_days_from_monday() as usize] + lesson_index;
             let mut cell_data = worksheet_data.get((row_index as usize, *column_index as usize));
             if !sheet_name.contains("не") {
-                let possible_cell_data = worksheet_data.get((row_index as usize, *column_index as usize + 1));
+                let possible_cell_data =
+                    worksheet_data.get((row_index as usize, *column_index as usize + 1));
                 if let Some(possible_cell_data) = possible_cell_data {
                     match possible_cell_data {
                         Data::String(s) => {
@@ -189,7 +207,8 @@ async fn fetch_schedule(date: chrono::NaiveDate, group: String) -> Result<String
             let time = match time_data {
                 Some(Data::String(time)) => time,
                 _ => "",
-            }.replace("\n", ", ");
+            }
+            .replace("\n", ", ");
 
             let classroom_data = worksheet_data.get((row_index as usize, *column_index + 2));
             let classroom = match classroom_data {

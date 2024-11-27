@@ -13,4 +13,5 @@ pretty_env_logger = "0.5"
 teloxide = { version = "0.13", features = ["macros", "webhooks", "rustls"]}
 chrono ={ version = "0.4.38", features = ["serde"] }
 serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.133"
 bytes = "1.8.0"

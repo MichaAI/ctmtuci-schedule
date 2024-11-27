@@ -242,6 +242,7 @@ dependencies = [
  "pretty_env_logger",
  "reqwest 0.12.9",
  "serde",
+ "serde_json",
  "teloxide",
  "tokio",
 ]
