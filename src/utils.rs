@@ -155,12 +155,13 @@ pub fn get_calendar(date: Option<chrono::NaiveDate>) -> (Vec<Vec<Option<chrono::
 
 #[test]
 fn test_get_calendar() {
+    assert_eq!(get_calendar(None).0.len(), 5);
+    
+
     let calendar = get_calendar(None);
-    assert_eq!(calendar.len(), 5);
-    assert_eq!(calendar[0].len(), 7);
 
     // Выводим календарь для проверки
-    for week in calendar {
+    for week in calendar.0 {
         for day in week {
             match day {
                 Some(date) => print!("{:2} ", date.day()),

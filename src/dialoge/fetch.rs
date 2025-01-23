@@ -1,12 +1,10 @@
 use crate::{
-    datatypes::MessageMetadata, sheet_updater::GROOPS, tg::fetch_schedule, utils::get_calendar,
+    datatypes::MessageMetadata, sheet_updater::GROOPS, sheet_parser::fetch_schedule, utils::get_calendar,
 };
 use log::{debug, info, trace, warn};
-use serde::{Deserialize, Serialize};
 use teloxide::{
-    dispatching::dialogue::InMemStorage,
     payloads::SendMessageSetters,
-    prelude::{Dialogue, Requester},
+    prelude::Requester,
     types::{CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message},
     Bot, RequestError,
 };
